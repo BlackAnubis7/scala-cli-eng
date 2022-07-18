@@ -1,4 +1,4 @@
-package scala.cli.commands.mdsandbox
+package scala.build.preprocessing.mdsandbox
 
 import scala.collection.mutable
 
@@ -12,7 +12,7 @@ object MarkdownSnippet {
     endLine: Int     // same as above
   ) {
     override def toString(): String = s"Fence[$info, lines $startLine-$endLine]{${body.replace("\n", "\\n")}}"
-    def resetScope: Boolean = false
+    def resetScope: Boolean = info.contains("reset")
   }
 
   private case class StartedFence(
