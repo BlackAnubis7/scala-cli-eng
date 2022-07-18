@@ -9,22 +9,24 @@ import scala.build.options.{BuildOptions, BuildRequirements}
 import scala.build.preprocessing.ScalaPreprocessor.ProcessingOutput
 import scala.build.{Inputs, Logger}
 
-final case class MarkdownPreprocessor(codeWrapper: CodeWrapper) extends Preprocessor {
+import scala.build.preprocessing.mdsandbox.SnippetPackager
+
+final case class MarkdownPreprocessor() extends Preprocessor {
   def preprocess(
     input: Inputs.SingleElement,
     logger: Logger
   ): Option[Either[BuildException, Seq[PreprocessedSource]]] =
     input match {
-      case script: Inputs.Script =>
+      case markdown: Inputs.MarkdownFile =>
         val res = either {
-          val content = value(PreprocessingUtil.maybeRead(script.path))
+          val content = value(PreprocessingUtil.maybeRead(markdown.path))
           val preprocessed = value {
             MarkdownPreprocessor.preprocess(
-              Right(script.path),
+              Right(markdown.path),
               content,
-              codeWrapper,
-              script.subPath,
-              ScopePath.fromPath(script.path),
+              // codeWrapper,
+              markdown.subPath,
+              ScopePath.fromPath(markdown.path),
               logger
             )
           }
@@ -32,23 +34,23 @@ final case class MarkdownPreprocessor(codeWrapper: CodeWrapper) extends Preproce
         }
         Some(res)
 
-      case script: Inputs.VirtualScript =>
-        val content = new String(script.content, StandardCharsets.UTF_8)
+      // case script: Inputs.VirtualScript =>
+      //   val content = new String(script.content, StandardCharsets.UTF_8)
 
-        val res = either {
-          val preprocessed = value {
-            MarkdownPreprocessor.preprocess(
-              Left(script.source),
-              content,
-              codeWrapper,
-              script.wrapperPath,
-              script.scopePath,
-              logger
-            )
-          }
-          preprocessed
-        }
-        Some(res)
+      //   val res = either {
+      //     val preprocessed = value {
+      //       MarkdownPreprocessor.preprocess(
+      //         Left(script.source),
+      //         content,
+      //         codeWrapper,
+      //         script.wrapperPath,
+      //         script.scopePath,
+      //         logger
+      //       )
+      //     }
+      //     preprocessed
+      //   }
+      //   Some(res)
 
       case _ =>
         None
@@ -60,33 +62,41 @@ object MarkdownPreprocessor {
   private def preprocess(
     reportingPath: Either[String, os.Path],
     content: String,
-    codeWrapper: CodeWrapper,
+    // codeWrapper: CodeWrapper,
     subPath: os.SubPath,
     scopePath: ScopePath,
     logger: Logger
   ): Either[BuildException, List[PreprocessedSource.InMemory]] = either {
 
-    val (contentIgnoredSheBangLines, _) = SheBang.ignoreSheBangLines(content)
+    // val (contentIgnoredSheBangLines, _) = SheBang.ignoreSheBangLines(content)
 
-    val (pkg, wrapper) = AmmUtil.pathToPackageWrapper(subPath)
+    // val (pkg, wrapper) = AmmUtil.pathToPackageWrapper(subPath)
+
+    val parsedMd: String = (new SnippetPackager(subPath.last, content)).buildScalaMain()
 
     val processingOutput =
       value(ScalaPreprocessor.process(
-        contentIgnoredSheBangLines,
+        parsedMd,
         reportingPath,
         scopePath / os.up,
         logger
       ))
         .getOrElse(ProcessingOutput(BuildRequirements(), Nil, BuildOptions(), None))
 
-    val (code, topWrapperLen, _) = codeWrapper.wrapCode(
-      pkg,
-      wrapper,
-      processingOutput.updatedContent.getOrElse(contentIgnoredSheBangLines)
-    )
+    // val (code, topWrapperLen, _) = codeWrapper.wrapCode(
+    //   pkg,
+    //   wrapper,
+    //   processingOutput.updatedContent.getOrElse(contentIgnoredSheBangLines)
+    // )
 
-    val className = (pkg :+ wrapper).map(_.raw).mkString(".")
-    val relPath   = os.rel / (subPath / os.up) / s"${subPath.last.stripSuffix(".sc")}.scala"
+    val code = processingOutput.updatedContent.getOrElse(parsedMd)
+
+    System.out.println(code)
+    val topWrapperLen = 0
+
+    // val className = (pkg :+ wrapper).map(_.raw).mkString(".")
+    val className = s"Markdown_${subPath.last}"
+    val relPath   = os.rel / (subPath / os.up) / s"${subPath.last.stripSuffix(".md")}.scala"
 
     val file = PreprocessedSource.InMemory(
       reportingPath.map((subPath, _)),
