@@ -1,4 +1,4 @@
-package scala.cli.commands.mdsandbox
+package scala.build.preprocessing.mdsandbox
 
 import MarkdownSnippet.Fence
 
@@ -21,7 +21,7 @@ class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
   }
 
   private def buildScalaMain(index: Int, line: Int): String = {
-    if (index >= snippets.length) ""
+    if (index >= snippets.length) "}"  // close last class
     else {
       val fence: Fence = snippets(index)
       val classOpener: String =
