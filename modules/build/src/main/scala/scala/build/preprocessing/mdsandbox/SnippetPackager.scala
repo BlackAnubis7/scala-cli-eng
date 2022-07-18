@@ -3,13 +3,16 @@ package scala.build.preprocessing.mdsandbox
 import MarkdownSnippet.Fence
 
 class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
-  val fileIdentifier = fileName.takeWhile(c => c.isLetterOrDigit || c == '_')
+  def this(fileName: String, content: String) = this(fileName, MarkdownSnippet.findFences(content))
+
+  // val fileIdentifier = fileName.takeWhile(c => c.isLetterOrDigit || c == '_')
+  val objectIdentifier: String = s"`Markdown_$fileName`"
 
   def className(index: Int): String = s"Snippet$index"
 
   def buildScalaMain(): String = {
     (0 until snippets.length).foldLeft(
-      s"object markdown_$fileIdentifier {def main(args: Array[String]): Unit = {"
+      s"object $objectIdentifier {def main(args: Array[String]): Unit = {"
     ) (
       (sum, index) => 
         if (snippets(index).resetScope || index == 0) sum :++ s"new ${className(index)}; "
@@ -26,7 +29,7 @@ class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
       val fence: Fence = snippets(index)
       val classOpener: String =
         if (index == 0)            s"class ${className(index)} {\n"    // first snippet needs to open a class
-        else if (fence.resetScope) s"} class ${className(index)} {\n"  // if scope is being reset, close previous class and open a new one
+        else if (fence.resetScope) s"}; class ${className(index)} {\n"  // if scope is being reset, close previous class and open a new one
         else "\n"
       ("\n" * (fence.startLine - line - 1))                 // padding
         .:++(classOpener)                                   // new class opening (if applicable)
