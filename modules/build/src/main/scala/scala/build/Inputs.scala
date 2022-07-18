@@ -209,6 +209,10 @@ object Inputs {
       extends OnDisk with SourceFile with Compiled {
     lazy val path: os.Path = base / subPath
   }
+  final case class MarkdownFile(base: os.Path, subPath: os.SubPath)
+      extends OnDisk with SourceFile {
+    lazy val path: os.Path = base / subPath
+  }
   final case class Directory(path: os.Path)         extends OnDisk with Compiled
   final case class ResourceDirectory(path: os.Path) extends OnDisk
 
@@ -231,6 +235,7 @@ object Inputs {
           case _: Inputs.JavaFile          => "java:"
           case _: Inputs.ScalaFile         => "scala:"
           case _: Inputs.Script            => "sc:"
+          case _: Inputs.MarkdownFile      => "md:"
         }
         Iterator(prefix, elem.path.toString, "\n").map(bytes)
       case v: Inputs.Virtual =>
@@ -388,6 +393,7 @@ object Inputs {
       else if (arg.endsWith(".sc")) Right(Seq(Script(dir, subPath)))
       else if (arg.endsWith(".scala")) Right(Seq(ScalaFile(dir, subPath)))
       else if (arg.endsWith(".java")) Right(Seq(JavaFile(dir, subPath)))
+      else if (arg.endsWith(".md")) Right(Seq(MarkdownFile(dir, subPath)))
       else if (os.isDir(path)) Right(Seq(Directory(path)))
       else if (acceptFds && arg.startsWith("/dev/fd/")) {
         val content = os.read.bytes(os.Path(arg, cwd))
