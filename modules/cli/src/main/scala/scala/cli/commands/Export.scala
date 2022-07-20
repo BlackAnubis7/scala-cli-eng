@@ -14,6 +14,7 @@ import scala.cli.commands.util.SharedOptionsUtil._
 import scala.cli.exportCmd._
 
 object Export extends ScalaCommand[ExportOptions] {
+  override def inSipScala = false
 
   private def prepareBuild(
     inputs: Inputs,
@@ -25,7 +26,7 @@ object Export extends ScalaCommand[ExportOptions] {
 
     logger.log("Preparing build")
 
-    val crossSources = value {
+    val (crossSources, _) = value {
       CrossSources.forInputs(
         inputs,
         Sources.defaultPreprocessors(

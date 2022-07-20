@@ -58,7 +58,7 @@ object Deps {
     // jni-utils version may need to be sync-ed when bumping the coursier version
     def coursier      = "2.1.0-M6-28-gbad85693f"
     def coursierCli   = "2.1.0-M5-18-gfebf9838c"
-    def jsoniterScala = "2.13.35"
+    def jsoniterScala = "2.13.36"
     def scalaMeta     = "4.5.9"
     def scalaNative   = "0.4.5"
     def scalaPackager = "0.1.26"
@@ -135,7 +135,7 @@ object Deps {
   def snailgun(force213: Boolean = false) =
     if (force213) ivy"io.github.alexarchambault.scala-cli.snailgun:snailgun-core_2.13:0.4.1-sc2"
     else ivy"io.github.alexarchambault.scala-cli.snailgun::snailgun-core:0.4.1-sc2"
-  def sttp            = ivy"com.softwaremill.sttp.client3:core_2.13:3.6.2"
+  def sttp            = ivy"com.softwaremill.sttp.client3:core_2.13:3.7.0"
   def svm             = ivy"org.graalvm.nativeimage:svm:22.0.0.2"
   def swoval          = ivy"com.swoval:file-tree-views:2.1.9"
   def testInterface   = ivy"org.scala-sbt:test-interface:1.0"
@@ -148,7 +148,7 @@ object Deps {
 }
 
 object BuildDeps {
-  def scalaCliVersion = "0.1.7"
+  def scalaCliVersion = "0.1.9"
 }
 
 def graalVmVersion     = "22.1.0"

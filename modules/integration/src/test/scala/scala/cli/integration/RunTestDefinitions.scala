@@ -1657,6 +1657,35 @@ abstract class RunTestDefinitions(val scalaVersionOpt: Option[String])
     }
   }
 
+  test("add to class path sources from using directive") {
+    val fileName       = "Hello.scala"
+    val (hello, world) = ("Hello", "World")
+    val inputs = TestInputs(
+      Seq(
+        os.rel / fileName ->
+          """|//> using file "Utils.scala", "helper"
+             |
+             |object Hello extends App {
+             |   println(s"${Utils.hello}${helper.Helper.world}")
+             |}""".stripMargin,
+        os.rel / "Utils.scala" ->
+          s"""|object Utils {
+              |  val hello = "$hello"
+              |}""".stripMargin,
+        os.rel / "helper" / "Helper.scala" ->
+          s"""|package helper
+              |object Helper {
+              |  val world = "$world"
+              |}""".stripMargin
+      )
+    )
+    inputs.fromRoot { root =>
+      val res = os.proc(TestUtil.cli, "Hello.scala")
+        .call(cwd = root)
+      expect(res.out.text().trim() == s"$hello$world")
+    }
+  }
+
   test("-X.. options passed to the child app") {
     val inputs = TestInputs(
       Seq(
@@ -2004,22 +2033,24 @@ abstract class RunTestDefinitions(val scalaVersionOpt: Option[String])
 
   test("correctly run a script snippet") {
     emptyInputs.fromRoot { root =>
-      val msg =
-        "123456" // FIXME: change this to a a non-numeric string when Windows encoding is handled properly
-      val res = os.proc(TestUtil.cli, "-e", s"println($msg)", extraOptions).call(cwd = root)
+      val msg       = "Hello world"
+      val quotation = TestUtil.argQuotationMark
+      val res =
+        os.proc(TestUtil.cli, "-e", s"println($quotation$msg$quotation)", extraOptions)
+          .call(cwd = root)
       expect(res.out.text().trim == msg)
     }
   }
 
   test("correctly run a scala snippet") {
     emptyInputs.fromRoot { root =>
-      val msg =
-        "123456" // FIXME: change this to a a non-numeric string when Windows encoding is handled properly
+      val msg       = "Hello world"
+      val quotation = TestUtil.argQuotationMark
       val res =
         os.proc(
           TestUtil.cli,
           "--scala-snippet",
-          s"object Hello extends App { println($msg) }",
+          s"object Hello extends App { println($quotation$msg$quotation) }",
           extraOptions
         )
           .call(cwd = root)
@@ -2029,16 +2060,86 @@ abstract class RunTestDefinitions(val scalaVersionOpt: Option[String])
 
   test("correctly run a java snippet") {
     emptyInputs.fromRoot { root =>
-      val msg =
-        "123456" // FIXME: change this to a a non-numeric string when Windows encoding is handled properly
+      val quotation = TestUtil.argQuotationMark
+      val msg       = "Hello world"
       val res = os.proc(
         TestUtil.cli,
         "--java-snippet",
-        s"public class Main { public static void main(String[] args) { System.out.println($msg); } }",
+        s"public class Main { public static void main(String[] args) { System.out.println($quotation$msg$quotation); } }",
         extraOptions
       )
         .call(cwd = root)
       expect(res.out.text().trim == msg)
+    }
+  }
+
+  test("correctly run multiple snippets") {
+    emptyInputs.fromRoot { root =>
+      val quotation = TestUtil.argQuotationMark
+
+      val scriptSnippetOption = "--script-snippet"
+      val scriptMessages @ Seq(scriptMsg1, scriptMsg2, scriptMsg3) =
+        Seq("hello script 1", "hello script 2", "hello script 3")
+      val script0 =
+        s"""def printAll(): Unit = println(
+           |  Seq(
+           |    snippet1.scriptMsg1, snippet2.scriptMsg2, snippet3.scriptMsg3,
+           |    ScalaSnippet1.msg, ScalaSnippet2.msg, ScalaSnippet3.msg,
+           |    JavaSnippet1.msg, JavaSnippet2.msg, JavaSnippet3.msg
+           |  ).mkString($quotation;$quotation)
+           |)""".stripMargin
+      val script1 = s"def scriptMsg1: String = $quotation$scriptMsg1$quotation"
+      val script2 = s"def scriptMsg2: String = $quotation$scriptMsg2$quotation"
+      val script3 = s"def scriptMsg3: String = $quotation$scriptMsg3$quotation"
+
+      val scalaSnippetOption = "--scala-snippet"
+      val scalaMessages @ Seq(scalaMsg1, scalaMsg2, scalaMsg3) =
+        Seq("hello scala 1", "hello scala 2", "hello scala 3")
+      val scala0 = "object SnippetMain extends App { snippet.printAll() }"
+      val scala1 = s"object ScalaSnippet1 { def msg: String = $quotation$scalaMsg1$quotation }"
+      val scala2 = s"object ScalaSnippet2 { def msg: String = $quotation$scalaMsg2$quotation }"
+      val scala3 = s"object ScalaSnippet3 { def msg: String = $quotation$scalaMsg3$quotation }"
+
+      val javaSnippetOption = "--java-snippet"
+      val javaMessages @ Seq(javaMsg1, javaMsg2, javaMsg3) =
+        Seq("hello scala 1", "hello scala 2", "hello scala 3")
+      val java1 =
+        s"public class JavaSnippet1 { public static String msg = $quotation$javaMsg1$quotation; }"
+      val java2 =
+        s"public class JavaSnippet2 { public static String msg = $quotation$javaMsg2$quotation; }"
+      val java3 =
+        s"public class JavaSnippet3 { public static String msg = $quotation$javaMsg3$quotation; }"
+
+      val expectedOutput = (scriptMessages ++ scalaMessages ++ javaMessages).mkString(";")
+
+      val res = os.proc(
+        TestUtil.cli,
+        scriptSnippetOption,
+        script0,
+        scriptSnippetOption,
+        script1,
+        scriptSnippetOption,
+        script2,
+        scriptSnippetOption,
+        script3,
+        scalaSnippetOption,
+        scala0,
+        scalaSnippetOption,
+        scala1,
+        scalaSnippetOption,
+        scala2,
+        scalaSnippetOption,
+        scala3,
+        javaSnippetOption,
+        java1,
+        javaSnippetOption,
+        java2,
+        javaSnippetOption,
+        java3,
+        extraOptions
+      )
+        .call(cwd = root)
+      expect(res.out.text().trim == expectedOutput)
     }
   }
 }

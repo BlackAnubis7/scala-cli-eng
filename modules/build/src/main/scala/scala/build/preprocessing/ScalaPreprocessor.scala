@@ -59,6 +59,7 @@ case object ScalaPreprocessor extends Preprocessor {
     UsingScalaJsOptionsDirectiveHandler,
     UsingScalaNativeOptionsDirectiveHandler,
     UsingScalaVersionDirectiveHandler,
+    UsingSourceDirectiveHandler,
     UsingTestFrameworkDirectiveHandler
   )
 
@@ -113,9 +114,8 @@ case object ScalaPreprocessor extends Preprocessor {
       case v: Inputs.VirtualScalaFile =>
         val res = either {
           val relPath = v match {
-            case v if v.isStdin   => os.sub / "stdin.scala"
-            case v if v.isSnippet => os.sub / "scala-snippet.scala"
-            case v                => v.subPath
+            case v if !v.isStdin && !v.isSnippet => v.subPath
+            case v                               => os.sub / v.generatedSourceFileName
           }
           val content = new String(v.content, StandardCharsets.UTF_8)
           val (requirements, scopedRequirements, options, updatedContentOpt) =
@@ -246,8 +246,8 @@ case object ScalaPreprocessor extends Preprocessor {
       val toFilePos = Position.Raw.filePos(path, content)
       val deps = value {
         dependencyTrees
-          .map { t =>
-            val pos      = toFilePos(Position.Raw(t.start, t.end))
+          .map { t => /// skip ivy ($ivy.`) or dep syntax ($dep.`)
+            val pos      = toFilePos(Position.Raw(t.start + "$ivy.`".length, t.end))
             val strDep   = t.prefix.drop(1).mkString(".")
             val maybeDep = parseDependency(strDep, pos)
             maybeDep.map(dep => Positioned(Seq(pos), dep))

@@ -7,6 +7,7 @@ import java.security.MessageDigest
 
 import scala.annotation.tailrec
 import scala.build.Inputs.WorkspaceOrigin
+import scala.build.errors.{BuildException, InputsException}
 import scala.build.internal.Constants
 import scala.build.internal.zip.WrappedZipInputStream
 import scala.build.options.Scope
@@ -29,7 +30,7 @@ final case class Inputs(
   def singleFiles(): Seq[Inputs.SingleFile] =
     elements.flatMap {
       case f: Inputs.SingleFile        => Seq(f)
-      case d: Inputs.Directory         => singleFilesFromDirectory(d)
+      case d: Inputs.Directory         => Inputs.singleFilesFromDirectory(d)
       case _: Inputs.ResourceDirectory => Nil
       case _: Inputs.Virtual           => Nil
     }
@@ -50,7 +51,7 @@ final case class Inputs(
   def flattened(): Seq[Inputs.SingleElement] =
     elements.flatMap {
       case f: Inputs.SingleFile        => Seq(f)
-      case d: Inputs.Directory         => singleFilesFromDirectory(d)
+      case d: Inputs.Directory         => Inputs.singleFilesFromDirectory(d)
       case _: Inputs.ResourceDirectory => Nil
       case v: Inputs.Virtual           => Seq(v)
     }
@@ -72,7 +73,7 @@ final case class Inputs(
 
   def add(extraElements: Seq[Inputs.Element]): Inputs =
     if (elements.isEmpty) this
-    else copy(elements = elements ++ extraElements)
+    else copy(elements = (elements ++ extraElements).distinct)
 
   def generatedSrcRoot(scope: Scope): os.Path =
     workspace / Constants.workspaceDirName / projectName / "src_generated" / scope.name
@@ -108,7 +109,7 @@ final case class Inputs(
       case elem: Inputs.OnDisk =>
         val content = elem match {
           case dirInput: Inputs.Directory =>
-            Seq("dir:") ++ singleFilesFromDirectory(dirInput)
+            Seq("dir:") ++ Inputs.singleFilesFromDirectory(dirInput)
               .map(file => s"${file.path}:" + os.read(file.path))
           case resDirInput: Inputs.ResourceDirectory =>
             // Resource changes for SN require relinking, so they should also be hashed
@@ -126,22 +127,6 @@ final case class Inputs(
     val digest        = md.digest()
     val calculatedSum = new BigInteger(1, digest)
     String.format(s"%040x", calculatedSum)
-  }
-
-  private def singleFilesFromDirectory(d: Inputs.Directory): Seq[Inputs.SingleFile] = {
-    import Ordering.Implicits.seqOrdering
-    os.walk.stream(d.path, skip = _.last.startsWith("."))
-      .filter(os.isFile(_))
-      .collect {
-        case p if p.last.endsWith(".java") =>
-          Inputs.JavaFile(d.path, p.subRelativeTo(d.path))
-        case p if p.last.endsWith(".scala") =>
-          Inputs.ScalaFile(d.path, p.subRelativeTo(d.path))
-        case p if p.last.endsWith(".sc") =>
-          Inputs.Script(d.path, p.subRelativeTo(d.path))
-      }
-      .toVector
-      .sortBy(_.subPath.segments)
   }
 
   def nativeWorkDir: os.Path =
@@ -186,8 +171,12 @@ object Inputs {
   }
 
   sealed abstract class VirtualSourceFile extends Virtual {
-    def isStdin: Boolean   = source.contains("<stdin>")
-    def isSnippet: Boolean = source.contains("<snippet>")
+    def isStdin: Boolean   = source.startsWith("<stdin>")
+    def isSnippet: Boolean = source.startsWith("<snippet>")
+    protected def generatedSourceFileName(fileSuffix: String): String =
+      if (isStdin) s"stdin$fileSuffix"
+      else if (isSnippet) s"${source.stripPrefix("<snippet>-")}$fileSuffix"
+      else s"virtual$fileSuffix"
   }
 
   sealed trait SingleFile extends OnDisk with SingleElement
@@ -218,12 +207,35 @@ object Inputs {
 
   final case class VirtualScript(content: Array[Byte], source: String, wrapperPath: os.SubPath)
       extends Virtual with AnyScalaFile with AnyScript
+  object VirtualScript {
+    val VirtualScriptNameRegex: Regex = "(^stdin$|^snippet\\d*$)".r
+  }
   final case class VirtualScalaFile(content: Array[Byte], source: String)
-      extends VirtualSourceFile with AnyScalaFile
+      extends VirtualSourceFile with AnyScalaFile {
+    def generatedSourceFileName: String = generatedSourceFileName(".scala")
+  }
   final case class VirtualJavaFile(content: Array[Byte], source: String)
-      extends VirtualSourceFile with Compiled
+      extends VirtualSourceFile with Compiled {
+    def generatedSourceFileName: String = generatedSourceFileName(".java")
+  }
   final case class VirtualData(content: Array[Byte], source: String)
       extends Virtual
+
+  def singleFilesFromDirectory(d: Inputs.Directory): Seq[Inputs.SingleFile] = {
+    import Ordering.Implicits.seqOrdering
+    os.walk.stream(d.path, skip = _.last.startsWith("."))
+      .filter(os.isFile(_))
+      .collect {
+        case p if p.last.endsWith(".java") =>
+          Inputs.JavaFile(d.path, p.subRelativeTo(d.path))
+        case p if p.last.endsWith(".scala") =>
+          Inputs.ScalaFile(d.path, p.subRelativeTo(d.path))
+        case p if p.last.endsWith(".sc") =>
+          Inputs.Script(d.path, p.subRelativeTo(d.path))
+      }
+      .toVector
+      .sortBy(_.subPath.segments)
+  }
 
   private def inputsHash(elements: Seq[Element]): String = {
     def bytes(s: String): Array[Byte] = s.getBytes(StandardCharsets.UTF_8)
@@ -332,28 +344,35 @@ object Inputs {
   }
 
   def validateSnippets(
-    scriptSnippetOpt: Option[String] = None,
-    scalaSnippetOpt: Option[String] = None,
-    javaSnippetOpt: Option[String] = None
+    scriptSnippetList: List[String] = List.empty,
+    scalaSnippetList: List[String] = List.empty,
+    javaSnippetList: List[String] = List.empty
   ): Seq[Either[String, Seq[Element]]] = {
     def validateSnippet(
-      maybeExpression: Option[String],
-      f: Array[Byte] => Element
-    ): Option[Either[String, Seq[Element]]] =
-      maybeExpression.filter(_.nonEmpty).map(expression =>
-        Right(Seq(f(expression.getBytes(StandardCharsets.UTF_8))))
-      )
+      snippetList: List[String],
+      f: (Array[Byte], String) => Element
+    ): Seq[Either[String, Seq[Element]]] =
+      snippetList.zipWithIndex.map { case (snippet, index) =>
+        val snippetName: String = if (index > 0) s"snippet$index" else "snippet"
+        if (snippet.nonEmpty) Right(Seq(f(snippet.getBytes(StandardCharsets.UTF_8), snippetName)))
+        else Left(s"Empty snippet was passed: $snippetName")
+      }
 
     Seq(
       validateSnippet(
-        scriptSnippetOpt,
-        content => VirtualScript(content, "snippet", os.sub / "snippet.sc")
+        scriptSnippetList,
+        (content, snippetName) => VirtualScript(content, snippetName, os.sub / s"$snippetName.sc")
       ),
       validateSnippet(
-        scalaSnippetOpt,
-        content => VirtualScalaFile(content, "<snippet>-scala-file")
+        scalaSnippetList,
+        (content, snippetNameSuffix) =>
+          VirtualScalaFile(content, s"<snippet>-scala-$snippetNameSuffix")
       ),
-      validateSnippet(javaSnippetOpt, content => VirtualJavaFile(content, "<snippet>-java-file"))
+      validateSnippet(
+        javaSnippetList,
+        (content, snippetNameSuffix) =>
+          VirtualJavaFile(content, s"<snippet>-java-$snippetNameSuffix")
+      )
     ).flatten
   }
 
@@ -415,22 +434,22 @@ object Inputs {
     baseProjectName: String,
     download: String => Either[String, Array[Byte]],
     stdinOpt: => Option[Array[Byte]],
-    scriptSnippetOpt: Option[String],
-    scalaSnippetOpt: Option[String],
-    javaSnippetOpt: Option[String],
+    scriptSnippetList: List[String],
+    scalaSnippetList: List[String],
+    javaSnippetList: List[String],
     acceptFds: Boolean,
     forcedWorkspace: Option[os.Path]
-  ): Either[String, Inputs] = {
+  ): Either[BuildException, Inputs] = {
     val validatedArgs: Seq[Either[String, Seq[Element]]] =
       validateArgs(args, cwd, download, stdinOpt, acceptFds)
-    val validatedExpressions: Seq[Either[String, Seq[Element]]] =
-      validateSnippets(scriptSnippetOpt, scalaSnippetOpt, javaSnippetOpt)
-    val validatedArgsAndExprs = validatedArgs ++ validatedExpressions
-    val invalid = validatedArgsAndExprs.collect {
+    val validatedSnippets: Seq[Either[String, Seq[Element]]] =
+      validateSnippets(scriptSnippetList, scalaSnippetList, javaSnippetList)
+    val validatedArgsAndSnippets = validatedArgs ++ validatedSnippets
+    val invalid = validatedArgsAndSnippets.collect {
       case Left(msg) => msg
     }
     if (invalid.isEmpty) {
-      val validElems = validatedArgsAndExprs.collect {
+      val validElems = validatedArgsAndSnippets.collect {
         case Right(elem) => elem
       }.flatten
       assert(validElems.nonEmpty)
@@ -438,7 +457,7 @@ object Inputs {
       Right(forValidatedElems(validElems, baseProjectName, directories, forcedWorkspace))
     }
     else
-      Left(invalid.mkString(System.lineSeparator()))
+      Left(new InputsException(invalid.mkString(System.lineSeparator())))
   }
 
   def apply(
@@ -449,18 +468,18 @@ object Inputs {
     defaultInputs: () => Option[Inputs] = () => None,
     download: String => Either[String, Array[Byte]] = _ => Left("URL not supported"),
     stdinOpt: => Option[Array[Byte]] = None,
-    scriptSnippetOpt: Option[String] = None,
-    scalaSnippetOpt: Option[String] = None,
-    javaSnippetOpt: Option[String] = None,
+    scriptSnippetList: List[String] = List.empty,
+    scalaSnippetList: List[String] = List.empty,
+    javaSnippetList: List[String] = List.empty,
     acceptFds: Boolean = false,
     forcedWorkspace: Option[os.Path] = None
-  ): Either[String, Inputs] =
+  ): Either[BuildException, Inputs] =
     if (
-      args.isEmpty && scriptSnippetOpt.isEmpty && scalaSnippetOpt.isEmpty && javaSnippetOpt.isEmpty
+      args.isEmpty && scriptSnippetList.isEmpty && scalaSnippetList.isEmpty && javaSnippetList.isEmpty
     )
-      defaultInputs().toRight(
+      defaultInputs().toRight(new InputsException(
         "No inputs provided (expected files with .scala or .sc extensions, and / or directories)."
-      )
+      ))
     else
       forNonEmptyArgs(
         args,
@@ -469,9 +488,9 @@ object Inputs {
         baseProjectName,
         download,
         stdinOpt,
-        scriptSnippetOpt,
-        scalaSnippetOpt,
-        javaSnippetOpt,
+        scriptSnippetList,
+        scalaSnippetList,
+        javaSnippetList,
         acceptFds,
         forcedWorkspace
       )
