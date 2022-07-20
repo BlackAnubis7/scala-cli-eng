@@ -72,11 +72,22 @@ object MarkdownPreprocessor {
 
     // val (pkg, wrapper) = AmmUtil.pathToPackageWrapper(subPath)
 
-    val parsedMd: String = (new SnippetPackager(subPath.last, content)).buildScalaMain()
+    val packager: SnippetPackager = new SnippetPackager(subPath.last, content)
+    val parsedMain: String = packager.buildScalaMain()
+    val parsedTest: String = packager.buildScalaTest()
 
-    val processingOutput =
+    val mainProcessingOutput =
       value(ScalaPreprocessor.process(
-        parsedMd,
+        parsedMain,
+        reportingPath,
+        scopePath / os.up,
+        logger
+      ))
+        .getOrElse(ProcessingOutput(BuildRequirements(), Nil, BuildOptions(), None))
+
+    val testProcessingOutput =
+      value(ScalaPreprocessor.process(
+        parsedTest,
         reportingPath,
         scopePath / os.up,
         logger
@@ -89,27 +100,45 @@ object MarkdownPreprocessor {
     //   processingOutput.updatedContent.getOrElse(contentIgnoredSheBangLines)
     // )
 
-    val code = processingOutput.updatedContent.getOrElse(parsedMd)
+    val mainCode = mainProcessingOutput.updatedContent.getOrElse(parsedMain)
+    val testCode = testProcessingOutput.updatedContent.getOrElse(parsedTest)
 
-    System.out.println(code)
+    System.out.println(s"<<< MAIN\n${mainCode}\nMAIN >>>")
+    System.out.println(s"<<< TEST\n${testCode}\nTEST >>>")
     val topWrapperLen = 0
 
     // val className = (pkg :+ wrapper).map(_.raw).mkString(".")
-    val className = s"Markdown_${subPath.last}"
-    val relPath   = os.rel / (subPath / os.up) / s"${subPath.last.stripSuffix(".md")}.scala"
+    val mainClassName = s"Markdown_${subPath.last}"
+    val mainRelPath   = os.rel / (subPath / os.up) / s"${subPath.last.stripSuffix(".md")}.scala"
 
-    val file = PreprocessedSource.InMemory(
+    // val testClassName = s"Markdown_${subPath.last}"
+    val testRelPath   = os.rel / (subPath / os.up) / s"${subPath.last.stripSuffix(".md")}_test.scala"
+
+    val mainFile = PreprocessedSource.InMemory(
       reportingPath.map((subPath, _)),
-      relPath,
-      code,
+      mainRelPath,
+      mainCode,
       topWrapperLen,
-      Some(processingOutput.opts),
-      Some(processingOutput.globalReqs),
-      processingOutput.scopedReqs,
-      Some(CustomCodeWrapper.mainClassObject(Name(className)).backticked),
+      Some(mainProcessingOutput.opts),
+      Some(mainProcessingOutput.globalReqs),
+      mainProcessingOutput.scopedReqs,
+      Some(CustomCodeWrapper.mainClassObject(Name(mainClassName)).backticked),
       scopePath
     )
-    List(file)
+
+    val testFile = PreprocessedSource.InMemory(
+      reportingPath.map((subPath, _)),
+      testRelPath,
+      testCode,
+      topWrapperLen,
+      Some(testProcessingOutput.opts),
+      Some(testProcessingOutput.globalReqs),
+      testProcessingOutput.scopedReqs,
+      None,
+      scopePath
+    )
+
+    List(mainFile, testFile)
   }
 
 }
