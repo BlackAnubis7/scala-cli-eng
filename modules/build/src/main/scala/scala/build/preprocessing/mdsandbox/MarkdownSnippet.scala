@@ -12,9 +12,10 @@ object MarkdownSnippet {
     endLine: Int     // same as above
   ) {
     override def toString(): String = s"Fence[$info, lines $startLine-$endLine]{${body.replace("\n", "\\n")}}"
-    def shouldIgnore: Boolean = info(0) != "scala" || info.contains("ignore")  // TODO - improve ignore conditions
+    def shouldIgnore: Boolean = info(0) != "scala" || info.contains("ignore")  // ignore when not scala, or explicitly marked
     def resetScope: Boolean = info.contains("reset")
     def isTest: Boolean = info.contains("test")
+    def isRaw: Boolean = info.contains("raw")
     def modifiers: Map[String, String] = Map.from(  // read snippet modifiers formed as key=value
       info
       .filter(_.contains('='))

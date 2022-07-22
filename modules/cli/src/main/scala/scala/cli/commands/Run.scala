@@ -175,9 +175,26 @@ object Run extends ScalaCommand[RunOptions] {
       finally watcher.dispose()
     }
     else {
+      val MDMODE = true
+      val INPUTS: Inputs =
+        if (MDMODE) inputs
+        else inputs.copy(
+          elements = inputs.elements.filter(
+            _ match {
+              case _: Inputs.MarkdownFile => false
+              case _ => true
+            }
+          )
+        )
+      val INITIALBUILDOPTIONS: BuildOptions =
+        if (MDMODE) initialBuildOptions.copy(
+          mainClass = Some("Markdown_test1$u002Emd")  // $u002E is a dot
+        ) else initialBuildOptions
+
       val builds =
         Build.build(
-          inputs,
+          INPUTS,
+          // INITIALBUILDOPTIONS,
           initialBuildOptions,
           compilerMaker,
           None,
