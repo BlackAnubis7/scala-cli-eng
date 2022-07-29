@@ -12,11 +12,38 @@ object MarkdownSnippet {
     endLine: Int     // same as above
   ) {
     override def toString(): String = s"Fence[$info, lines $startLine-$endLine]{${body.replace("\n", "\\n")}}"
-    def shouldIgnore: Boolean = info(0) != "scala" || info.contains("ignore")  // ignore when not scala, or explicitly marked
+
+    /** 
+      * @return `true` if this snippet should be ignored, `false` otherwise 
+      */
+    def shouldIgnore: Boolean = info(0) != "scala" || info.contains("ignore")
+
+    /**
+      * @return `true` if this snippet should have its scope reset, `false` otherwise
+      */
     def resetScope: Boolean = info.contains("reset")
+
+    /**
+      * @return `true` if this snippet is a test snippet, `false` otherwise
+      */
     def isTest: Boolean = info.contains("test")
+
+    /**
+      * @return `true` if this snippet is a raw snippet, `false` otherwise
+      */
     def isRaw: Boolean = info.contains("raw")
-    def modifiers: Map[String, String] = Map.from(  // read snippet modifiers formed as key=value
+
+    /**
+      * Extracts `key=value` pairs from snippet description. For example:
+      * {{{```scala a=apple b=banana.png c=lemon=lemon a=melon}}}
+      * will return following mappings
+      * - a -> "apple" (not "melon", first value counts)
+      * - b -> "banana.png"
+      * - c -> "lemon=lemon"
+      *
+      * @return `Map` containing all extracted `key -> value` mappings
+      */
+    def modifiers: Map[String, String] = Map.from(
       info
       .filter(_.contains('='))
       .map(s => (
