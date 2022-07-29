@@ -40,7 +40,7 @@ class PreprocessingTests extends munit.FunSuite {
     val logger      = TestLogger()
     val markdownFile = Inputs.MarkdownFile(os.temp.dir(), os.SubPath("NotExists.md"))
 
-    val res             = MarkdownPreprocessor().preprocess(markdownFile, logger)
+    val res             = MarkdownPreprocessor.preprocess(markdownFile, logger)
     val expectedMessage = s"File not found: ${markdownFile.path}"
 
     assert(res.nonEmpty)
