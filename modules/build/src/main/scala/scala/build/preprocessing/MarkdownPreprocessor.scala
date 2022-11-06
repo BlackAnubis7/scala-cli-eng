@@ -33,6 +33,20 @@ case object MarkdownPreprocessor extends Preprocessor {
         }
         Some(res)
 
+      case virtual: Inputs.VirtualMarkdownFile =>
+        val res = either {
+          value {
+            MarkdownPreprocessor.preprocess(
+              Left(virtual.source),
+              new String(virtual.content, StandardCharsets.UTF_8),
+              virtual.subPath,
+              virtual.scopePath,
+              logger
+            )
+          }
+        }
+        Some(res)
+
       case _ =>
         None
     }
