@@ -15,6 +15,8 @@ final case class RunOptions(
   @Recurse
     shared: SharedOptions = SharedOptions(),
   @Recurse
+    markdown: MarkdownOptions = MarkdownOptions(),
+  @Recurse
     benchmarking: BenchmarkingOptions = BenchmarkingOptions(),
   @Recurse
     sharedJava: SharedJavaOptions = SharedJavaOptions(),
