@@ -99,7 +99,6 @@ object Run extends ScalaCommand[RunOptions] {
             scratchDirOpt
           )
         }
-
         processOrCommand match {
           case Right(process) =>
             val onExitProcess = process.onExit().thenApply { p1 =>
@@ -185,11 +184,13 @@ object Run extends ScalaCommand[RunOptions] {
       finally watcher.dispose()
     }
     else {
-      val inputsMd: Inputs = inputs.copy(
-        elements = inputs.elements :+ scala.build.preprocessing.mdsandbox.MdRunner.generateRunnerFile(inputs)
-      )
+      val MDMODE = options.markdown.markdown == Some(true)
 
-      val MDMODE = true
+      val inputsMd: Inputs = 
+        if (MDMODE) inputs.copy(
+          elements = inputs.elements :+ scala.build.preprocessing.mdsandbox.MdRunner.generateRunnerFile(inputs)
+        ) else inputs
+      
       val initialBuildOptionsMd: BuildOptions =
         if (MDMODE) initialBuildOptions.copy(
           mainClass = Some("Markdown$Runner")
@@ -224,6 +225,7 @@ object Run extends ScalaCommand[RunOptions] {
           sys.exit(1)
       }
     }
+    println("---\n")
   }
 
   private def maybeRunOnce(
