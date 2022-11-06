@@ -21,7 +21,7 @@ object MdRunner {
       .collect{
         case Inputs.MarkdownFile(base, subPath) => markdownExecutor(subPath.toString)
       }
-      .mkString("object Markdown$Runner {def main(args: Array[String]): Unit = {", "; ", "}}")
+      .mkString("object Markdown$Runner {def main(args: Array[String]): Unit = {", "; ", "; println()}}")
       .getBytes()
     val source: String = "markdown_runner.scala"
 
