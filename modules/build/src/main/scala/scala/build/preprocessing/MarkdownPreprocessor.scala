@@ -73,9 +73,21 @@ object MarkdownPreprocessor {
     // val (pkg, wrapper) = AmmUtil.pathToPackageWrapper(subPath)
 
     val packager: SnippetPackager = new SnippetPackager(subPath.last, content)
-    val parsedMain: String = packager.buildScalaMain()
-    val parsedTest: String = packager.buildScalaTest()
+    
+    
 
+    // val (code, topWrapperLen, _) = codeWrapper.wrapCode(
+    //   pkg,
+    //   wrapper,
+    //   processingOutput.updatedContent.getOrElse(contentIgnoredSheBangLines)
+    // )
+
+
+    val topWrapperLen = 0
+
+    // val className = (pkg :+ wrapper).map(_.raw).mkString(".")
+
+    val parsedMain: String = packager.buildScalaMain()
     val mainProcessingOutput =
       value(ScalaPreprocessor.process(
         parsedMain,
@@ -84,36 +96,9 @@ object MarkdownPreprocessor {
         logger
       ))
         .getOrElse(ProcessingOutput(BuildRequirements(), Nil, BuildOptions(), None))
-
-    val testProcessingOutput =
-      value(ScalaPreprocessor.process(
-        parsedTest,
-        reportingPath,
-        scopePath / os.up,
-        logger
-      ))
-        .getOrElse(ProcessingOutput(BuildRequirements(), Nil, BuildOptions(), None))
-
-    // val (code, topWrapperLen, _) = codeWrapper.wrapCode(
-    //   pkg,
-    //   wrapper,
-    //   processingOutput.updatedContent.getOrElse(contentIgnoredSheBangLines)
-    // )
-
     val mainCode = mainProcessingOutput.updatedContent.getOrElse(parsedMain)
-    val testCode = testProcessingOutput.updatedContent.getOrElse(parsedTest)
-
-    System.out.println(s"<<< MAIN\n${mainCode}\nMAIN >>>")
-    System.out.println(s"<<< TEST\n${testCode}\nTEST >>>")
-    val topWrapperLen = 0
-
-    // val className = (pkg :+ wrapper).map(_.raw).mkString(".")
     val mainClassName = s"Markdown_${subPath.last}"
-    val mainRelPath   = os.rel / (subPath / os.up) / s"${subPath.last.stripSuffix(".md")}.scala"
-
-    // val testClassName = s"Markdown_${subPath.last}"
-    val testRelPath   = os.rel / (subPath / os.up) / s"${subPath.last.stripSuffix(".md")}_test.scala"
-
+    val mainRelPath   = os.rel / (subPath / os.up) / s"${subPath.last.stripSuffix(".md")}_mainmd.scala"
     val mainFile = PreprocessedSource.InMemory(
       reportingPath.map((subPath, _)),
       mainRelPath,
@@ -126,6 +111,18 @@ object MarkdownPreprocessor {
       scopePath
     )
 
+    val parsedTest: String = packager.buildScalaTest()
+    val testProcessingOutput =
+      value(ScalaPreprocessor.process(
+        parsedTest,
+        reportingPath,
+        scopePath / os.up,
+        logger
+      ))
+        .getOrElse(ProcessingOutput(BuildRequirements(), Nil, BuildOptions(), None))
+    val testCode = testProcessingOutput.updatedContent.getOrElse(parsedTest)
+    // val testClassName = s"Markdown_${subPath.last}"
+    val testRelPath   = os.rel / (subPath / os.up) / s"${subPath.last.stripSuffix(".md")}_testmd.scala"
     val testFile = PreprocessedSource.InMemory(
       reportingPath.map((subPath, _)),
       testRelPath,
@@ -138,7 +135,33 @@ object MarkdownPreprocessor {
       scopePath
     )
 
-    List(mainFile, testFile)
+    val parsedRaw: String = packager.buildScalaRaw()
+    val rawProcessingOutput =
+      value(ScalaPreprocessor.process(
+        parsedRaw,
+        reportingPath,
+        scopePath / os.up,
+        logger
+      ))
+        .getOrElse(ProcessingOutput(BuildRequirements(), Nil, BuildOptions(), None))
+    val rawCode = rawProcessingOutput.updatedContent.getOrElse(parsedRaw)
+    val rawRelPath   = os.rel / (subPath / os.up) / s"${subPath.last.stripSuffix(".md")}_rawmd.scala" //
+    val rawFile = PreprocessedSource.InMemory(
+      reportingPath.map((subPath, _)),
+      rawRelPath,
+      rawCode,
+      topWrapperLen,
+      Some(rawProcessingOutput.opts),
+      Some(rawProcessingOutput.globalReqs),
+      rawProcessingOutput.scopedReqs,
+      None,
+      scopePath
+    )
+
+    // System.out.println(s"<<< MAIN\n${mainCode}\nMAIN >>>")
+    // System.out.println(s"<<< TEST\n${testCode}\nTEST >>>")
+    // System.out.println(s"<<< RAW\n${rawCode}\nRAW >>>")
+    List(mainFile, testFile, rawFile)
   }
 
 }
