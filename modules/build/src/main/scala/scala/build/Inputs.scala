@@ -232,6 +232,8 @@ object Inputs {
           Inputs.ScalaFile(d.path, p.subRelativeTo(d.path))
         case p if p.last.endsWith(".sc") =>
           Inputs.Script(d.path, p.subRelativeTo(d.path))
+        case p if p.last.endsWith(".md") =>
+          Inputs.MarkdownFile(d.path, p.subRelativeTo(d.path))
       }
       .toVector
       .sortBy(_.subPath.segments)
