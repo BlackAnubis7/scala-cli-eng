@@ -218,6 +218,10 @@ object Inputs {
       extends VirtualSourceFile with Compiled {
     def generatedSourceFileName: String = generatedSourceFileName(".java")
   }
+  final case class VirtualMarkdownFile(content: Array[Byte], source: String)
+      extends VirtualSourceFile {
+    def generatedSourceFileName: String = generatedSourceFileName(".md")
+  }
   final case class VirtualData(content: Array[Byte], source: String)
       extends Virtual
 
@@ -327,6 +331,7 @@ object Inputs {
   private def resolve(path: String, content: Array[Byte]): Element =
     if (path.endsWith(".scala")) VirtualScalaFile(content, path)
     else if (path.endsWith(".java")) VirtualJavaFile(content, path)
+    else if (path.endsWith(".md")) VirtualMarkdownFile(content, path)
     else if (path.endsWith(".sc")) {
       val wrapperPath = os.sub / path.split("/").last
       VirtualScript(content, path, wrapperPath)
