@@ -1,6 +1,7 @@
 package scala.build.preprocessing.mdsandbox
 
 import scala.build.Inputs
+import java.io.EOFException
 
 object MdRunner {
   /**
@@ -19,7 +20,10 @@ object MdRunner {
 
     val content: Array[Byte] = flatInputs
       .collect{
-        case Inputs.MarkdownFile(base, subPath) => markdownExecutor(subPath.toString)
+        case Inputs.MarkdownFile(base, subPath) => 
+          markdownExecutor(subPath.toString)
+        case vmf: Inputs.VirtualMarkdownFile => 
+          markdownExecutor(vmf.subPath.toString)
       }
       .mkString("object Markdown$Runner {def main(args: Array[String]): Unit = {", "; ", "; println()}}")
       .getBytes()
