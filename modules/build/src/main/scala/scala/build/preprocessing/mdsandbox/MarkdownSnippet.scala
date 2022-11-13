@@ -39,6 +39,11 @@ object MarkdownSnippet {
     def isFail: Boolean = info.contains("fail")
 
     /**
+      * @return `true` if this snippet is a global snippet, `false` otherwise
+      */
+    def isGlobal: Boolean = info.contains("global")
+
+    /**
       * Extracts `key=value` pairs from snippet description. For example:
       * {{{```scala a=apple b=banana.png c=lemon=lemon a=melon}}}
       * will return following mappings

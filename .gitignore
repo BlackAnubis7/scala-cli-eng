@@ -4,5 +4,7 @@ out/
 .vscode/
 .idea/
 
+private_examples/
+
 .bsp
 .scala-build

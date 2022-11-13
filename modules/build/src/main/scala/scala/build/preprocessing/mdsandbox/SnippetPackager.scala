@@ -24,7 +24,11 @@ class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
       s"object $runObjectIdentifier {def execute(): Unit = {"
     ) (
       (sum, index) => 
-        if (runSnippets(index).resetScope || index == 0) sum :++ s"new ${runClassName(index)}; "
+        if (
+          runSnippets(index).resetScope 
+          || index == 0 
+          || (index > 0 && runSnippets(index - 1).isGlobal && !runSnippets(index).isGlobal)
+          ) sum :++ s"new ${runClassName(index)}; "
         else sum  // that class hasn't been created
     )
     .:++("} ")
@@ -32,13 +36,16 @@ class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
     .:++("}")
   }
 
-  private def buildScalaMain(index: Int, line: Int): String = {
-    if (index >= runSnippets.length) "}"  // close last class
+  private def buildScalaMain(index: Int, line: Int, isClassOpened: Boolean = false): String = {
+    if (isClassOpened && index >= runSnippets.length) "}"  // close last class, if opened
     else {
       val fence: Fence = runSnippets(index)
       val classOpener: String =
-        if (index == 0)            s"class ${runClassName(index)} {\n"     // first snippet needs to open a class
-        else if (fence.resetScope) s"}; class ${runClassName(index)} {\n"  // if scope is being reset, close previous class and open a new one
+        if (fence.isGlobal)
+          if (isClassOpened) "}\n"  // global snippet, some class opened already
+          else "\n"
+        else if (!isClassOpened)   s"class ${runClassName(index)} {\n"     // no class currently opened
+        else if (fence.resetScope)        s"}; class ${runClassName(index)} {\n"  // if scope is being reset, close previous class and open a new one
         else "\n"
       val tryOpener: String =
         if (fence.isFail) "try {"
@@ -51,7 +58,7 @@ class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
         .:++(tryOpener)                                     // try / catch opening (if applicable)
         .:++(fence.body)                                    // snippet body
         .:++(closingPadding)                                // try / catch ending (if applicable)    
-        .:++(buildScalaMain(index + 1, fence.endLine + 1))  // further snippets
+        .:++(buildScalaMain(index + 1, fence.endLine + 1, !fence.isGlobal))  // further snippets
     }
   }
 
