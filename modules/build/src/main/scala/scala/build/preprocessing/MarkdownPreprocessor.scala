@@ -14,6 +14,13 @@ import scala.build.preprocessing.mdsandbox.SnippetPackager
 case object MarkdownPreprocessor extends Preprocessor {
   def preprocess(
     input: Inputs.SingleElement,
+    logger: Logger,
+    maybeRecoverOnError: build.errors.BuildException => Option[build.errors.BuildException]
+  ): Option[Either[BuildException, Seq[PreprocessedSource]]] =
+    preprocess(input, logger)
+
+  def preprocess(
+    input: Inputs.SingleElement,
     logger: Logger
   ): Option[Either[BuildException, Seq[PreprocessedSource]]] =
     input match {
@@ -68,7 +75,8 @@ case object MarkdownPreprocessor extends Preprocessor {
         parsedMain,
         reportingPath,
         scopePath / os.up,
-        logger
+        logger,
+        (a: Any) => None
       ))
         .getOrElse(ProcessingOutput(BuildRequirements(), Nil, BuildOptions(), None))
     val mainCode = mainProcessingOutput.updatedContent.getOrElse(parsedMain)
@@ -92,7 +100,8 @@ case object MarkdownPreprocessor extends Preprocessor {
         parsedTest,
         reportingPath,
         scopePath / os.up,
-        logger
+        logger,
+        (a: Any) => None
       ))
         .getOrElse(ProcessingOutput(BuildRequirements(), Nil, BuildOptions(), None))
     val testCode = testProcessingOutput.updatedContent.getOrElse(parsedTest)
@@ -115,7 +124,8 @@ case object MarkdownPreprocessor extends Preprocessor {
         parsedRaw,
         reportingPath,
         scopePath / os.up,
-        logger
+        logger,
+        (a: Any) => None
       ))
         .getOrElse(ProcessingOutput(BuildRequirements(), Nil, BuildOptions(), None))
     val rawCode = rawProcessingOutput.updatedContent.getOrElse(parsedRaw)
