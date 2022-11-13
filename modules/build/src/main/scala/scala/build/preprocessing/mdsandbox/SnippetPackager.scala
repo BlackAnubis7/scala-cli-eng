@@ -40,10 +40,17 @@ class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
         if (index == 0)            s"class ${runClassName(index)} {\n"     // first snippet needs to open a class
         else if (fence.resetScope) s"}; class ${runClassName(index)} {\n"  // if scope is being reset, close previous class and open a new one
         else "\n"
+      val tryOpener: String =
+        if (fence.isFail) "try {"
+        else ""
+      val closingPadding: String =  // padding in place of closing backticks
+        if (fence.isFail) "} catch {case _ => println(\"FAIL\")}\n"
+        else "\n"
       ("\n" * (fence.startLine - line - 1))                 // padding
         .:++(classOpener)                                   // new class opening (if applicable)
+        .:++(tryOpener)                                     // try / catch opening (if applicable)
         .:++(fence.body)                                    // snippet body
-        .:++("\n")                                          // padding in place of closing backticks
+        .:++(closingPadding)                                // try / catch ending (if applicable)    
         .:++(buildScalaMain(index + 1, fence.endLine + 1))  // further snippets
     }
   }

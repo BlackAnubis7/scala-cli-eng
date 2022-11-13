@@ -34,6 +34,11 @@ object MarkdownSnippet {
     def isRaw: Boolean = info.contains("raw")
 
     /**
+      * @return `true` if this snippet is a fail snippet, `false` otherwise
+      */
+    def isFail: Boolean = info.contains("fail")
+
+    /**
       * Extracts `key=value` pairs from snippet description. For example:
       * {{{```scala a=apple b=banana.png c=lemon=lemon a=melon}}}
       * will return following mappings
