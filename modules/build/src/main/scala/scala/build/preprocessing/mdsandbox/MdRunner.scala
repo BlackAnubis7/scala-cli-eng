@@ -7,7 +7,7 @@ object MdRunner {
   /**
     * Generates an executor for given `fileName`
     */
-  def markdownExecutor(fileName: String): String = s"`Markdown$$${fileName.replace('.', '$')}`.execute()"
+  def markdownExecutor(fileName: String): String = s"`Markdown$$${sanitiseIdentifier(fileName)}`.execute()"
 
   /**
     * Creates a virtual Scala file, which executes snippets from other Markdown files
@@ -31,4 +31,7 @@ object MdRunner {
 
     Inputs.VirtualScalaFile(content, source)
   }
+
+  def sanitiseIdentifier(ident: String): String =
+    ident.foldLeft("")((a: String, b: Char) => a.:+(if (b=='_'||b.isLetterOrDigit) b else '$'))
 }
