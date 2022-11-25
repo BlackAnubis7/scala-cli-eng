@@ -664,12 +664,14 @@ object Build {
           case d: Inputs.Directory =>
             // Filtering event for directories, to ignore those related to the .bloop directory in particular
             event =>
-              val p           = os.Path(event.getTypedPath.getPath.toAbsolutePath)
-              val relPath     = p.relativeTo(d.path)
-              val isHidden    = relPath.segments.exists(_.startsWith("."))
-              def isScalaFile = relPath.last.endsWith(".sc") || relPath.last.endsWith(".scala")
-              def isJavaFile  = relPath.last.endsWith(".java")
-              !isHidden && (isScalaFile || isJavaFile)
+              val p              = os.Path(event.getTypedPath.getPath.toAbsolutePath)
+              val relPath        = p.relativeTo(d.path)
+              val isHidden       = relPath.segments.exists(_.startsWith("."))
+              val mdMode         = options.markdownOptions.markdown == Some(true) || options.markdownOptions.markdown_raw == Some(true)
+              def isScalaFile    = relPath.last.endsWith(".sc") || relPath.last.endsWith(".scala")
+              def isJavaFile     = relPath.last.endsWith(".java")
+              def isMarkdownFile = relPath.last.endsWith(".md")
+              !isHidden && (isScalaFile || isJavaFile || (isMarkdownFile && mdMode))
           case _ => _ => true
         }
 

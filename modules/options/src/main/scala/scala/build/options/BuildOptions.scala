@@ -37,7 +37,8 @@ final case class BuildOptions(
   internal: InternalOptions = InternalOptions(),
   mainClass: Option[String] = None,
   testOptions: TestOptions = TestOptions(),
-  notForBloopOptions: PostBuildOptions = PostBuildOptions()
+  notForBloopOptions: PostBuildOptions = PostBuildOptions(),
+  markdownOptions: MarkdownBuildOptions = MarkdownBuildOptions()
 ) {
 
   import BuildOptions.JavaHomeInfo
@@ -604,6 +605,34 @@ final case class BuildOptions(
 }
 
 object BuildOptions {
+  def apply(
+    scalaOptions: ScalaOptions,
+    scalaJsOptions: ScalaJsOptions,
+    scalaNativeOptions: ScalaNativeOptions,
+    internalDependencies: InternalDependenciesOptions,
+    javaOptions: JavaOptions,
+    jmhOptions: JmhOptions,
+    classPathOptions: ClassPathOptions,
+    scriptOptions: ScriptOptions,
+    internal: InternalOptions,
+    mainClass: Option[String],
+    testOptions: TestOptions,
+    notForBloopOptions: PostBuildOptions
+  ): BuildOptions = BuildOptions(
+    scalaOptions,
+    scalaJsOptions,
+    scalaNativeOptions,
+    internalDependencies,
+    javaOptions,
+    jmhOptions,
+    classPathOptions,
+    scriptOptions,
+    internal,
+    mainClass,
+    testOptions,
+    notForBloopOptions,
+    MarkdownBuildOptions()
+  )
 
   final case class CrossKey(
     scalaVersion: String,
