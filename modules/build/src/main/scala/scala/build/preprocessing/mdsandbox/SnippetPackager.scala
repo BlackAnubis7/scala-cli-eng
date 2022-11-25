@@ -1,6 +1,7 @@
 package scala.build.preprocessing.mdsandbox
 
 import MarkdownSnippet.Fence
+import MdRunner.sanitiseIdentifier
 
 class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
   def this(fileName: String, content: String) = this(fileName, MarkdownSnippet.findFences(content))
@@ -8,14 +9,14 @@ class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
   val (rawSnippets, processedSnippets) = snippets.partition(f => f.isRaw)
   val (testSnippets, runSnippets) = processedSnippets.partition(f => f.isTest)
 
-  val runObjectIdentifier: String = s"`Markdown$$${fileName.replace('.', '$')}`"
-  val testObjectIdentifier: String = s"`Markdown_Test$$${fileName.replace('.', '$')}`"
+  val runObjectIdentifier: String = s"Markdown$$${sanitiseIdentifier(fileName)}"
+  val testObjectIdentifier: String = s"`Markdown_Test$$${sanitiseIdentifier(fileName)}`"
 
   /** Generates class name for a snippet with given index */
   def runClassName(index: Int): String = s"Snippet$$$index"
 
   /** Generates class name for a test snippet with given index */
-  def testClassName(index: Int): String = s"`Test$$${fileName.replace('.', '$')}_$index`"
+  def testClassName(index: Int): String = s"`Test$$${sanitiseIdentifier(fileName)}_$index`"
 
   /** Returns Scala snippets packed into classes and glued together into an object */
   def buildScalaMain(): String = {
@@ -31,7 +32,7 @@ class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
           ) sum :++ s"new ${runClassName(index)}; "
         else sum  // that class hasn't been created
     )
-    .:++("} ")
+    .:++("}; ")
     .:++(buildScalaMain(0, 0))
     .:++("}")
   }
