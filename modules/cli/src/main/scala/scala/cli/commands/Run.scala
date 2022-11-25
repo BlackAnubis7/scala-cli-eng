@@ -16,6 +16,7 @@ import scala.cli.internal.ProcUtil
 import scala.util.Properties
 import scala.cli.config.{ConfigDb, Keys}
 import scala.cli.commands.util.CommonOps.SharedDirectoriesOptionsOps
+import scala.cli.commands.markdown.MarkdownDataGenerator
 
 object Run extends ScalaCommand[RunOptions] {
   override def group = "Main"
@@ -144,8 +145,8 @@ object Run extends ScalaCommand[RunOptions] {
     if (options.watch.watchMode) {
       var processOpt = Option.empty[(Process, CompletableFuture[_])]
       val watcher = Build.watch(
-        inputs,
-        initialBuildOptions,
+        MarkdownDataGenerator.generateMarkdownInputs(inputs, options.markdown),
+        MarkdownDataGenerator.generateMarkdownBuildOptions(initialBuildOptions, options.markdown),
         compilerMaker,
         None,
         logger,
@@ -184,22 +185,11 @@ object Run extends ScalaCommand[RunOptions] {
       finally watcher.dispose()
     }
     else {
-      val MDMODE = options.markdown.markdown == Some(true)
-
-      val inputsMd: Inputs = 
-        if (MDMODE) inputs.copy(
-          elements = inputs.elements :+ scala.build.preprocessing.mdsandbox.MdRunner.generateRunnerFile(inputs)
-        ) else inputs
-      
-      val initialBuildOptionsMd: BuildOptions =
-        if (MDMODE) initialBuildOptions.copy(
-          mainClass = Some("Markdown$Runner")
-        ) else initialBuildOptions
 
       val builds =
         Build.build(
-          inputsMd,
-          initialBuildOptionsMd,
+          MarkdownDataGenerator.generateMarkdownInputs(inputs, options.markdown),
+          MarkdownDataGenerator.generateMarkdownBuildOptions(initialBuildOptions, options.markdown),
           compilerMaker,
           None,
           logger,
