@@ -22,6 +22,7 @@ import scala.build.testrunner.{AsmTestRunner, TestRunner}
 import scala.util.Properties
 
 object Runner {
+  val outFile: File = File.createTempFile("scala-cli", ".out")
 
   def maybeExec(
     commandName: String,
@@ -94,7 +95,8 @@ object Runner {
       }
       for (dir <- cwd)
         b.directory(dir.toIO)
-      val process = b.start()
+      val r = b.redirectOutput(outFile)
+      val process = r.start()
       process
     }
   }

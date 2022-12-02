@@ -2,6 +2,7 @@ package scala.build.preprocessing.mdsandbox
 
 import MarkdownSnippet.Fence
 import MdRunner.sanitiseIdentifier
+import scala.runtime.IntRef
 
 class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
   def this(fileName: String, content: String) = this(fileName, MarkdownSnippet.findFences(content))
@@ -13,24 +14,34 @@ class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
   val testObjectIdentifier: String = s"`Markdown_Test$$${sanitiseIdentifier(fileName)}`"
 
   /** Generates class name for a snippet with given index */
-  def runClassName(index: Int): String = s"Snippet$$$index"
+  private def runClassName(index: Int): String = s"Snippet$$$index"
 
   /** Generates class name for a test snippet with given index */
-  def testClassName(index: Int): String = s"`Test$$${sanitiseIdentifier(fileName)}_$index`"
+  private def testClassName(index: Int): String = s"`Test$$${sanitiseIdentifier(fileName)}_$index`"
+
+  private val fileControlPrint = s"println(\"${MarkdownControlGenerator.fileControlHeader(fileName)}\"); "
+  private def snippetControlPrint(fence: Fence): String = 
+    s"println(\"${MarkdownControlGenerator.snippetControlHeader(fence.index, fence.startLine, fence.endLine)}\"); "
+
+  // private val fileControlPrint = s"println(\"# File: $fileName\"); "
+  // private def snippetControlPrint(fence: Fence): String = 
+  //   s"println(\"## Snippet ${fence.index + 1} [${fence.startLine}-${fence.endLine}]\"); "
 
   /** Returns Scala snippets packed into classes and glued together into an object */
   def buildScalaMain(): String = {
     if (runSnippets.isEmpty) s"object $runObjectIdentifier {def execute(): Unit = {}}"  // no snippets
     else (0 until runSnippets.length).foldLeft(
-      s"object $runObjectIdentifier {def execute(): Unit = {"
+      s"object $runObjectIdentifier {def execute(): Unit = {${fileControlPrint}"
     ) (
-      (sum, index) => 
+      (sum, index) => {
+        val fence = runSnippets(index)
         if (
-          runSnippets(index).resetScope 
+          fence.resetScope 
           || index == 0 
-          || (index > 0 && runSnippets(index - 1).isGlobal && !runSnippets(index).isGlobal)
+          || (index > 0 && runSnippets(index - 1).isGlobal && !fence.isGlobal)
           ) sum :++ s"new ${runClassName(index)}; "
         else sum  // that class hasn't been created
+      }
     )
     .:++("}; ")
     .:++(buildScalaMain(0, 0))
@@ -45,9 +56,9 @@ class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
         if (fence.isGlobal)
           if (isClassOpened) "}\n"  // global snippet, some class opened already
           else "\n"
-        else if (!isClassOpened)   s"class ${runClassName(index)} {\n"     // no class currently opened
-        else if (fence.resetScope)        s"}; class ${runClassName(index)} {\n"  // if scope is being reset, close previous class and open a new one
-        else "\n"
+        else if (!isClassOpened) s"class ${runClassName(fence.index)} {${snippetControlPrint(fence)}\n"     // no class currently opened
+        else if (fence.resetScope) s"}; class ${runClassName(fence.index)} {${snippetControlPrint(fence)}\n"  // if scope is being reset, close previous class and open a new one
+        else s"${snippetControlPrint(fence)}\n"
       val tryOpener: String =
         if (fence.isFail) "try {"
         else ""

@@ -6,6 +6,7 @@ object MarkdownSnippet {
   private val allowIndentedFence: Boolean = false
 
   case class Fence(
+    index: Int,
     info: Seq[String],
     body: String,
     startLine: Int,  // start of fenced body EXCLUDING backticks
@@ -77,10 +78,11 @@ object MarkdownSnippet {
     * @param lines input file sliced into lines
     * @return [[Fence]] representing whole closed code-fence
     */
-  private def closeFence(started: StartedFence, tickEndLine: Int, lines: Array[String]): Fence = {
+  private def closeFence(started: StartedFence, tickEndLine: Int, lines: Array[String], index: Int): Fence = {
     val start: Int = started.tickStartLine + 1
     val bodyLines: Array[String] = lines.slice(start, tickEndLine)
     Fence(
+      index,
       started.info.split("\\s+").toList,  // strip info by whitespaces
       bodyLines.tail.foldLeft(bodyLines.head)((body, line) => body.:++("\n"+line)),
       start,  // snippet has to begin in the new line
@@ -104,7 +106,7 @@ object MarkdownSnippet {
         case Some(s) => {
           val start: Int = line.indexOf(s.backticks)
           if (start == s.indent && line.forall(c => c == '`' || c.isWhitespace)) {
-            fences += closeFence(s, i, lines)
+            fences += closeFence(s, i, lines, fences.length)
             startedFenceOpt = None
           }
         } case None => {
@@ -120,7 +122,7 @@ object MarkdownSnippet {
     }
     startedFenceOpt match {  // snippet can be ended with EOF
       case Some(s) => {
-        fences += closeFence(s, lines.length, lines)
+        fences += closeFence(s, lines.length, lines, fences.length)
         startedFenceOpt = None
       }
       case None =>
