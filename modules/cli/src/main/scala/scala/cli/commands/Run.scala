@@ -3,6 +3,9 @@ package scala.cli.commands
 import caseapp._
 
 import java.util.concurrent.CompletableFuture
+import java.io.OutputStream
+import java.io.PrintStream
+import java.io.File
 
 import scala.build.EitherCps.{either, value}
 import scala.build.errors.BuildException
@@ -16,7 +19,7 @@ import scala.cli.internal.ProcUtil
 import scala.util.Properties
 import scala.cli.config.{ConfigDb, Keys}
 import scala.cli.commands.util.CommonOps.SharedDirectoriesOptionsOps
-import scala.cli.commands.markdown.MarkdownDataGenerator
+import scala.cli.commands.markdown._
 
 object Run extends ScalaCommand[RunOptions] {
   override def group = "Main"
@@ -142,6 +145,13 @@ object Run extends ScalaCommand[RunOptions] {
       .orExit(logger)
     val actionableDiagnostics = configDb.get(Keys.actions).getOrElse(None)
 
+    val runnerOutFile: File = Runner.outFile
+    val tailer = 
+      if (options.markdown.markdown == Some(true)) MarkdownFileTailer.attachMarkdownTailerTo(runnerOutFile)
+      else MarkdownFileTailer.attachNeutralTailerTo(runnerOutFile)
+    val tailerThread = new Thread(tailer)
+    tailerThread.start()
+
     if (options.watch.watchMode) {
       var processOpt = Option.empty[(Process, CompletableFuture[_])]
       val watcher = Build.watch(
@@ -182,7 +192,11 @@ object Run extends ScalaCommand[RunOptions] {
         }
       }
       try WatchUtil.waitForCtrlC()
-      finally watcher.dispose()
+      finally{
+        MarkdownFileTailer.sleepForDelay()
+        tailerThread.interrupt()
+        watcher.dispose()
+      }
     }
     else {
 
@@ -210,11 +224,15 @@ object Run extends ScalaCommand[RunOptions] {
             .orExit(logger)
           for ((process, onExit) <- res)
             ProcUtil.waitForProcess(process, onExit)
+          for ((process, _) <- res) process.waitFor()
+          MarkdownFileTailer.sleepForDelay()
+          tailerThread.interrupt()
         case _: Build.Failed =>
           System.err.println("Compilation failed")
           sys.exit(1)
       }
     }
+    tailerThread.interrupt()
     println("---\n")
   }
 
