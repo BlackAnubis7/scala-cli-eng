@@ -15,6 +15,10 @@ final case class MarkdownOptions(
   @HelpMessage("Generate output markdown files. Works only when passed together with --markdown")
   @Name("mdout")
     generate_markdown_output: Option[Boolean] = None,
+
+  @HelpMessage("Do not display \"# File: ...\" and \"## Snippet: ...\" headers")
+  @Name("nohdr")
+    no_markdown_headers: Option[Boolean] = None,
 )
 // format: on
 

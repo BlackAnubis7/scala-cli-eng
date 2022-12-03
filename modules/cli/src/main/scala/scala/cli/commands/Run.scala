@@ -147,11 +147,17 @@ object Run extends ScalaCommand[RunOptions] {
 
     val runnerOutFile: File = Runner.outFile
     val markdownOutputBuilder = new MarkdownOutputBuilder
+    val contentOnlyPrinter: String => Unit =
+      if (options.markdown.no_markdown_headers == Some(true)) println
+      else (_: String) => {}
+    val readablePrinter: String => Unit =
+      if (options.markdown.no_markdown_headers == Some(true)) (_: String) => {}
+      else println
     val tailer = 
       if (options.markdown.markdown == Some(true)) MarkdownFileTailer.attachMarkdownTailerTo(
         runnerOutFile,
-        (_: String) => {},
-        println,
+        contentOnlyPrinter,
+        readablePrinter,
         markdownOutputBuilder
       )
       else MarkdownFileTailer.attachNeutralTailerTo(runnerOutFile)
