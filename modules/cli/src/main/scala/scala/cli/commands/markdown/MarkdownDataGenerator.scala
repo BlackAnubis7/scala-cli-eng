@@ -6,7 +6,7 @@ import scala.build.options.{BuildOptions, MarkdownBuildOptions}
 
 object MarkdownDataGenerator {
   def generateMarkdownInputs(inputs: Inputs, mdOptions: MarkdownOptions): Inputs = {
-    val mdMode: Boolean = mdOptions.markdown == Some(true) || mdOptions.markdown_raw == Some(true)
+    val mdMode: Boolean = mdOptions.markdown == Some(true)
     if (mdMode) inputs.copy(
       elements = inputs.elements :+ scala.build.preprocessing.mdsandbox.MdRunner.generateRunnerFile(inputs)
     ) else inputs
