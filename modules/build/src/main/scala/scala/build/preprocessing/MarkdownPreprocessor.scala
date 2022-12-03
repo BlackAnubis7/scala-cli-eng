@@ -10,6 +10,7 @@ import scala.build.preprocessing.ScalaPreprocessor.ProcessingOutput
 import scala.build.{Inputs, Logger}
 
 import scala.build.preprocessing.mdsandbox.SnippetPackager
+import scala.runtime.Statics
 
 case object MarkdownPreprocessor extends Preprocessor {
   def preprocess(
@@ -66,7 +67,12 @@ case object MarkdownPreprocessor extends Preprocessor {
     logger: Logger
   ): Either[BuildException, List[PreprocessedSource.InMemory]] = either {
 
-    val packager: SnippetPackager = new SnippetPackager(subPath.toString, content)
+    val scopePathRoot = scopePath.root match {
+      case Left(str) => str.toString
+      case Right(path) => path.toString
+    }
+    val packager: SnippetPackager = new SnippetPackager(s"${scopePathRoot}${scopePath.path}", content)
+    // val packager: SnippetPackager = new SnippetPackager(subPath.toString, content)
     val topWrapperLen = 0
 
     val parsedMain: String = packager.buildScalaMain()

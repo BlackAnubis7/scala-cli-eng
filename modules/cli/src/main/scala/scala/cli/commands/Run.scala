@@ -146,8 +146,14 @@ object Run extends ScalaCommand[RunOptions] {
     val actionableDiagnostics = configDb.get(Keys.actions).getOrElse(None)
 
     val runnerOutFile: File = Runner.outFile
+    val markdownOutputBuilder = new MarkdownOutputBuilder
     val tailer = 
-      if (options.markdown.markdown == Some(true)) MarkdownFileTailer.attachMarkdownTailerTo(runnerOutFile)
+      if (options.markdown.markdown == Some(true)) MarkdownFileTailer.attachMarkdownTailerTo(
+        runnerOutFile,
+        (_: String) => {},
+        println,
+        markdownOutputBuilder
+      )
       else MarkdownFileTailer.attachNeutralTailerTo(runnerOutFile)
     val tailerThread = new Thread(tailer)
     tailerThread.start()
@@ -232,8 +238,12 @@ object Run extends ScalaCommand[RunOptions] {
           sys.exit(1)
       }
     }
+    // All processes have been waited for
     tailerThread.interrupt()
-    println("---\n")
+    println("_____")
+    if (options.markdown.generate_markdown_output == Some(true) && options.markdown.markdown == Some(true)) 
+      markdownOutputBuilder.createOutFiles()
+    println("\n")
   }
 
   private def maybeRunOnce(
