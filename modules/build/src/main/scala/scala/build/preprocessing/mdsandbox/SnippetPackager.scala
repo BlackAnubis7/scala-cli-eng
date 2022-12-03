@@ -27,19 +27,20 @@ class SnippetPackager(val filePath: String, val snippets: Seq[Fence]) {
   def buildScalaMain(): String = {
     if (runSnippets.isEmpty) s"object $runObjectIdentifier {def execute(): Unit = {}}"  // no snippets
     else (0 until runSnippets.length).foldLeft(
-      s"object $runObjectIdentifier {def execute(): Unit = {${fileControlPrint}"
+      s"object $runObjectIdentifier {def execute(): Unit = {"
     ) (
       (sum, index) => {
         val fence = runSnippets(index)
         if (
-          fence.resetScope 
-          || index == 0 
-          || (index > 0 && runSnippets(index - 1).isGlobal && !fence.isGlobal)
-          ) sum :++ s"new ${runClassName(fence.index)}; "
+          !fence.isGlobal && (
+            fence.resetScope 
+            || index == 0 
+            || (index > 0 && runSnippets(index - 1).isGlobal)
+          )) sum :++ s"new ${runClassName(fence.index)}; "
         else sum  // that class hasn't been created
       }
     )
-    .:++("}; ")
+    .:++(s"}; ${fileControlPrint}")
     .:++(buildScalaMain(0, 0))
     .:++("}")
   }
@@ -50,8 +51,8 @@ class SnippetPackager(val filePath: String, val snippets: Seq[Fence]) {
       val fence: Fence = runSnippets(index)
       val classOpener: String =
         if (fence.isGlobal)
-          if (isClassOpened) "}\n"  // global snippet, some class opened already
-          else "\n"
+          if (isClassOpened) s"}; ${snippetControlPrint(fence)}\n"  // global snippet, some class opened already
+          else s"${snippetControlPrint(fence)}\n"
         else if (!isClassOpened) s"class ${runClassName(fence.index)} {${snippetControlPrint(fence)}\n"     // no class currently opened
         else if (fence.resetScope) s"}; class ${runClassName(fence.index)} {${snippetControlPrint(fence)}\n"  // if scope is being reset, close previous class and open a new one
         else s"${snippetControlPrint(fence)}\n"

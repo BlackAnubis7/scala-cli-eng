@@ -31,8 +31,12 @@ private class MarkdownFileTailerListener(
   private def readableFileHeader(path: String): String =
     s"# File: $path"
 
-  private def readableSnippetHeader(snippet: MarkdownControlGenerator.Snippet): String =
-    s"## Snippet #${snippet.index + 1} [lines ${snippet.lineBegin + 1}-${snippet.lineEnd + 1}]"
+  private def readableSnippetHeader(snippet: MarkdownControlGenerator.Snippet): String = {
+    val lines = 
+      if (snippet.lineBegin == snippet.lineEnd) s"[line ${snippet.lineBegin + 1}]"
+      else s"[lines ${snippet.lineBegin + 1}-${snippet.lineEnd + 1}]"
+    s"## Snippet #${snippet.index + 1} $lines"
+  }
 
   override def handle(line: String): Unit = {
     val fileControl = MarkdownControlGenerator.extractFileControlHeader(line)
