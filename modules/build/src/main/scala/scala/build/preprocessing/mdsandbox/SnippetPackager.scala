@@ -4,28 +4,24 @@ import MarkdownSnippet.Fence
 import MdRunner.sanitiseIdentifier
 import scala.runtime.IntRef
 
-class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
-  def this(fileName: String, content: String) = this(fileName, MarkdownSnippet.findFences(content))
+class SnippetPackager(val filePath: String, val snippets: Seq[Fence]) {
+  def this(filePath: String, content: String) = this(filePath, MarkdownSnippet.findFences(content))
 
   val (rawSnippets, processedSnippets) = snippets.partition(f => f.isRaw)
   val (testSnippets, runSnippets) = processedSnippets.partition(f => f.isTest)
 
-  val runObjectIdentifier: String = s"Markdown$$${sanitiseIdentifier(fileName)}"
-  val testObjectIdentifier: String = s"`Markdown_Test$$${sanitiseIdentifier(fileName)}`"
+  val runObjectIdentifier: String = s"Markdown$$${sanitiseIdentifier(filePath)}"
+  val testObjectIdentifier: String = s"`Markdown_Test$$${sanitiseIdentifier(filePath)}`"
 
   /** Generates class name for a snippet with given index */
   private def runClassName(index: Int): String = s"Snippet$$$index"
 
   /** Generates class name for a test snippet with given index */
-  private def testClassName(index: Int): String = s"`Test$$${sanitiseIdentifier(fileName)}_$index`"
+  private def testClassName(index: Int): String = s"`Test$$${sanitiseIdentifier(filePath)}_$index`"
 
-  private val fileControlPrint = s"println(\"${MarkdownControlGenerator.fileControlHeader(fileName)}\"); "
+  private val fileControlPrint = s"println(\"${MarkdownControlGenerator.fileControlHeader(filePath)}\"); "
   private def snippetControlPrint(fence: Fence): String = 
     s"println(\"${MarkdownControlGenerator.snippetControlHeader(fence.index, fence.startLine, fence.endLine)}\"); "
-
-  // private val fileControlPrint = s"println(\"# File: $fileName\"); "
-  // private def snippetControlPrint(fence: Fence): String = 
-  //   s"println(\"## Snippet ${fence.index + 1} [${fence.startLine}-${fence.endLine}]\"); "
 
   /** Returns Scala snippets packed into classes and glued together into an object */
   def buildScalaMain(): String = {
@@ -39,7 +35,7 @@ class SnippetPackager(val fileName: String, val snippets: Seq[Fence]) {
           fence.resetScope 
           || index == 0 
           || (index > 0 && runSnippets(index - 1).isGlobal && !fence.isGlobal)
-          ) sum :++ s"new ${runClassName(index)}; "
+          ) sum :++ s"new ${runClassName(fence.index)}; "
         else sum  // that class hasn't been created
       }
     )

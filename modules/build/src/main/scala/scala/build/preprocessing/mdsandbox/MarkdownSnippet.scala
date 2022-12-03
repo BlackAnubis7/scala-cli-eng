@@ -100,34 +100,39 @@ object MarkdownSnippet {
     var startedFenceOpt: Option[StartedFence] = None
     val fences = mutable.ListBuffer.empty[Fence]
     val lines: Array[String] = md.split("\n\r?")
-    for (i <- 0 until lines.length) {
-      val line = lines(i)
-      startedFenceOpt match {
-        case Some(s) => {
-          val start: Int = line.indexOf(s.backticks)
-          if (start == s.indent && line.forall(c => c == '`' || c.isWhitespace)) {
-            fences += closeFence(s, i, lines, fences.length)
-            startedFenceOpt = None
-          }
-        } case None => {
-          val start: Int = line.indexOf("```")
-          if (start == 0 || (start > 0 && allowIndentedFence)) {  // doesn't allow snippet indent
-            val fence = line.substring(start)
-            val backticks: String = fence.takeWhile(_ == '`')
-            val info: String = fence.substring(backticks.length)
-            startedFenceOpt = Some(StartedFence(info, i, backticks, start))
+    
+    lines.headOption match {
+      case Some(firstLine) if !MarkdownConstants.GLOBAL_IGNORE_STATEMENT_REGEX.matches(firstLine) =>
+        for (i <- 0 until lines.length) {
+          val line = lines(i)
+          startedFenceOpt match {
+            case Some(s) => {
+              val start: Int = line.indexOf(s.backticks)
+              if (start == s.indent && line.forall(c => c == '`' || c.isWhitespace)) {
+                fences += closeFence(s, i, lines, fences.length)
+                startedFenceOpt = None
+              }
+            } case None => {
+              val start: Int = line.indexOf("```")
+              if (start == 0 || (start > 0 && allowIndentedFence)) {  // doesn't allow snippet indent
+                val fence = line.substring(start)
+                val backticks: String = fence.takeWhile(_ == '`')
+                val info: String = fence.substring(backticks.length)
+                startedFenceOpt = Some(StartedFence(info, i, backticks, start))
+              }
+            }
           }
         }
-      }
-    }
-    startedFenceOpt match {  // snippet can be ended with EOF
-      case Some(s) => {
-        fences += closeFence(s, lines.length, lines, fences.length)
-        startedFenceOpt = None
-      }
-      case None =>
-    }
+        startedFenceOpt match {  // snippet can be ended with EOF
+          case Some(s) => {
+            fences += closeFence(s, lines.length, lines, fences.length)
+            startedFenceOpt = None
+          }
+          case None =>
+        }
 
-    fences.toList.filter(fence => !fence.shouldIgnore)
+        fences.toList.filter(fence => !fence.shouldIgnore)
+      case _ => List[Fence]()
+    }
   }
 }

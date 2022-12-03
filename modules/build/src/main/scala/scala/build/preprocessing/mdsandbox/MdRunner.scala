@@ -21,7 +21,7 @@ object MdRunner {
     val content: Array[Byte] = flatInputs
       .collect{
         case Inputs.MarkdownFile(base, subPath) => 
-          markdownExecutor(subPath.toString)
+          markdownExecutor((base / subPath).toString)
         case vmf: Inputs.VirtualMarkdownFile => 
           markdownExecutor(vmf.subPath.toString)
       }
