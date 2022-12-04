@@ -15,6 +15,11 @@ final case class TestOptions(
   @Recurse
     compileCross: CompileCrossOptions = CompileCrossOptions(),
 
+  @Group("Markdown")
+  @HelpMessage("Include tests placed in markdown snippets")
+  @Name("md")
+    markdown: Option[Boolean] = None,
+
   @Group("Test")
   @HelpMessage("Name of the test framework's runner class to use while running tests")
   @ValueDescription("class-name")

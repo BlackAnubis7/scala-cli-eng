@@ -11,13 +11,13 @@ class SnippetPackager(val filePath: String, val snippets: Seq[Fence]) {
   val (testSnippets, runSnippets) = processedSnippets.partition(f => f.isTest)
 
   val runObjectIdentifier: String = s"Markdown$$${sanitiseIdentifier(filePath)}"
-  val testObjectIdentifier: String = s"`Markdown_Test$$${sanitiseIdentifier(filePath)}`"
+  val testObjectIdentifier: String = s"Markdown_Test$$${sanitiseIdentifier(filePath)}"
 
   /** Generates class name for a snippet with given index */
   private def runClassName(index: Int): String = s"Snippet$$$index"
 
   /** Generates class name for a test snippet with given index */
-  private def testClassName(index: Int): String = s"`Test$$${sanitiseIdentifier(filePath)}_$index`"
+  private def testClassName(index: Int): String = s"Test$$${sanitiseIdentifier(filePath)}_$index"
 
   private val fileControlPrint = s"println(\"${MarkdownControlGenerator.fileControlHeader(filePath)}\"); "
   private def snippetControlPrint(fence: Fence): String = 

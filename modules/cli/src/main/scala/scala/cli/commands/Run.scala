@@ -167,8 +167,8 @@ object Run extends ScalaCommand[RunOptions] {
     if (options.watch.watchMode) {
       var processOpt = Option.empty[(Process, CompletableFuture[_])]
       val watcher = Build.watch(
-        MarkdownDataGenerator.generateMarkdownInputs(inputs, options.markdown),
-        MarkdownDataGenerator.generateMarkdownBuildOptions(initialBuildOptions, options.markdown),
+        MarkdownDataGenerator.generateMarkdownInputsForRun(inputs, options.markdown),
+        MarkdownDataGenerator.generateMarkdownBuildOptionsForRun(initialBuildOptions, options.markdown),
         compilerMaker,
         None,
         logger,
@@ -214,8 +214,8 @@ object Run extends ScalaCommand[RunOptions] {
 
       val builds =
         Build.build(
-          MarkdownDataGenerator.generateMarkdownInputs(inputs, options.markdown),
-          MarkdownDataGenerator.generateMarkdownBuildOptions(initialBuildOptions, options.markdown),
+          MarkdownDataGenerator.generateMarkdownInputsForRun(inputs, options.markdown),
+          MarkdownDataGenerator.generateMarkdownBuildOptionsForRun(initialBuildOptions, options.markdown),
           compilerMaker,
           None,
           logger,

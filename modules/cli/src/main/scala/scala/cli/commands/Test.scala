@@ -3,18 +3,20 @@ package scala.cli.commands
 import caseapp._
 
 import java.nio.file.Path
+import java.io.File
 
 import scala.build.EitherCps.{either, value}
 import scala.build.Ops._
 import scala.build.errors.{BuildException, CompositeBuildException}
 import scala.build.internal.{Constants, Runner}
-import scala.build.options.{BuildOptions, JavaOpt, Platform, Scope}
+import scala.build.options.{BuildOptions, JavaOpt, Platform, Scope, MarkdownBuildOptions}
 import scala.build.testrunner.AsmTestRunner
 import scala.build.{Build, BuildThreads, Builds, CrossKey, Logger, Positioned}
 import scala.cli.CurrentParams
 import scala.cli.commands.util.SharedOptionsUtil._
 import scala.cli.config.{ConfigDb, Keys}
 import scala.cli.commands.util.CommonOps.SharedDirectoriesOptionsOps
+import scala.cli.commands.markdown._
 
 object Test extends ScalaCommand[TestOptions] {
   override def group                                                      = "Main"
@@ -42,6 +44,11 @@ object Test extends ScalaCommand[TestOptions] {
   }
 
   def run(options: TestOptions, args: RemainingArgs): Unit = {
+    val runnerOutFile: File = Runner.outFile
+    val tailer = MarkdownFileTailer.attachNeutralTailerTo(runnerOutFile)
+    val tailerThread = new Thread(tailer)
+    tailerThread.start()
+
     maybePrintGroupHelp(options)
     CurrentParams.verbosity = options.shared.logging.verbosity
 
@@ -70,7 +77,7 @@ object Test extends ScalaCommand[TestOptions] {
       .orExit(logger)
     val actionableDiagnostics = configDb.get(Keys.actions).getOrElse(None)
 
-    def maybeTest(builds: Builds, allowExit: Boolean): Unit = {
+    def maybeTest(builds: Builds, allowExit: Boolean, tailerOpt: Option[Thread] = None): Unit = {
       val optionsKeys = builds.map.keys.toVector.map(_.optionsKey).distinct
       val builds0 = optionsKeys.flatMap { optionsKey =>
         builds.map.get(CrossKey(optionsKey, Scope.Test))
@@ -109,6 +116,17 @@ object Test extends ScalaCommand[TestOptions] {
         else
           maybeRetCodes.orReport(logger)
 
+      tailerOpt match {
+        case Some(thread: Thread) =>
+          for (retCodes <- retCodesOpt) {
+            MarkdownFileTailer.sleepForDelay()
+            thread.interrupt()
+            println()
+          }
+        case _ =>
+      }
+      
+
       for (retCodes <- retCodesOpt if !retCodes.forall(_ == 0))
         if (allowExit)
           sys.exit(retCodes.find(_ != 0).getOrElse(1))
@@ -122,10 +140,11 @@ object Test extends ScalaCommand[TestOptions] {
         }
     }
 
+    val mdMode: Boolean = options.markdown == Some(true)
     if (options.watch.watchMode) {
       val watcher = Build.watch(
-        inputs,
-        initialBuildOptions,
+        MarkdownDataGenerator.generateMarkdownInputsForTest(inputs, mdMode),
+        MarkdownDataGenerator.generateMarkdownBuildOptionsForTest(initialBuildOptions, mdMode),
         compilerMaker,
         None,
         logger,
@@ -139,13 +158,18 @@ object Test extends ScalaCommand[TestOptions] {
           maybeTest(builds, allowExit = false)
       }
       try WatchUtil.waitForCtrlC()
-      finally watcher.dispose()
+      finally {
+        watcher.dispose()
+        MarkdownFileTailer.sleepForDelay()
+        tailerThread.interrupt()
+        println()
+      }
     }
     else {
       val builds =
         Build.build(
-          inputs,
-          initialBuildOptions,
+          MarkdownDataGenerator.generateMarkdownInputsForTest(inputs, mdMode),
+          MarkdownDataGenerator.generateMarkdownBuildOptionsForTest(initialBuildOptions, mdMode),
           compilerMaker,
           None,
           logger,
@@ -155,7 +179,7 @@ object Test extends ScalaCommand[TestOptions] {
           actionableDiagnostics = actionableDiagnostics
         )
           .orExit(logger)
-      maybeTest(builds, allowExit = true)
+      maybeTest(builds, allowExit = true, Some(tailerThread))
     }
   }
 
