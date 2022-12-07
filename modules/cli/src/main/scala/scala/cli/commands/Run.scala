@@ -146,6 +146,7 @@ object Run extends ScalaCommand[RunOptions] {
     val actionableDiagnostics = configDb.get(Keys.actions).getOrElse(None)
 
     val runnerOutFile: File = Runner.outFile
+    println(s">>> ${runnerOutFile.getAbsolutePath()} <<<")
     val markdownOutputBuilder = new MarkdownOutputBuilder
     val contentOnlyPrinter: String => Unit =
       if (options.markdown.no_markdown_headers == Some(true)) println
