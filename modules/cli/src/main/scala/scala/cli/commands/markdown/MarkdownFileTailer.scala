@@ -15,6 +15,9 @@ private class MarkdownFileTailerListener(
   val readablePrinter: String => Unit,
   val outputCollector: MarkdownOutputBuilder
 ) extends TailerListenerAdapter {
+  private val YELLOW: String = "\u001b[0;33m"
+  private val RESET: String = "\u001b[0m"
+
   private var lateFileHeader: Option[String] = None
   private var lateSnippetHeader: Option[MarkdownControlGenerator.Snippet] = None
 
@@ -29,13 +32,13 @@ private class MarkdownFileTailerListener(
   }
 
   private def readableFileHeader(path: String): String =
-    s"# File: $path"
+    s"$YELLOW# File: $path$RESET"
 
   private def readableSnippetHeader(snippet: MarkdownControlGenerator.Snippet): String = {
     val lines = 
       if (snippet.lineBegin == snippet.lineEnd) s"[line ${snippet.lineBegin + 1}]"
       else s"[lines ${snippet.lineBegin + 1}-${snippet.lineEnd + 1}]"
-    s"## Snippet #${snippet.index + 1} $lines"
+    s"$YELLOW## Snippet #${snippet.index + 1} $lines$RESET"
   }
 
   override def handle(line: String): Unit = {
