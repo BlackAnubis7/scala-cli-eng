@@ -60,7 +60,7 @@ class SnippetPackager(val filePath: String, val snippets: Seq[Fence]) {
         if (fence.isFail) "try {"
         else ""
       val closingPadding: String =  // padding in place of closing backticks
-        if (fence.isFail) "} catch {case e => println(s\"Error occurred - ${e.toString()}\")}\n"
+        if (fence.isFail) "} catch {case e: Throwable => println(s\"Error occurred - ${e.toString()}\")}\n"
         else "\n"
       ("\n" * (fence.startLine - line - 1))                 // padding
         .:++(classOpener)                                   // new class opening (if applicable)
